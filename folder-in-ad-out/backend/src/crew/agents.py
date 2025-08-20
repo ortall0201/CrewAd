@@ -348,8 +348,8 @@ class EditorAgent:
         
         try:
             from moviepy.editor import (
-                ImageClip, AudioFileClip, concatenate_videoclips,
-                CompositeVideoClip, TextClip
+                ImageClip, AudioFileClip, concatenate_videoclips, 
+                CompositeVideoClip, TextClip, ColorClip
             )
             
             clips = []
@@ -445,12 +445,12 @@ class EditorAgent:
     
     def _apply_ken_burns(self, clip, zoom=1.05):
         """Apply Ken Burns zoom effect"""
-        def make_frame(t):
-            progress = t / clip.duration
+        def resize_func(t):
+            progress = t / clip.duration if clip.duration > 0 else 0
             current_zoom = 1 + (zoom - 1) * progress
-            return clip.resize(current_zoom).get_frame(t)
+            return current_zoom
         
-        return clip.fl(make_frame)
+        return clip.resize(lambda t: resize_func(t))
     
     def _create_text_clip(self, text: str, duration: float, aspect: str):
         """Create animated text clip"""
@@ -469,13 +469,12 @@ class EditorAgent:
             txt_clip = TextClip(
                 text,
                 fontsize=50,
-                color='white',
-                font='Arial-Bold'
+                color='white'
             ).set_position('center').set_duration(duration)
             
             return CompositeVideoClip([bg, txt_clip])
-        except:
-            # Fallback if TextClip fails
+        except Exception as e:
+            logger.warning(f"TextClip creation failed: {e}, using background only")
             return bg
     
     def _render_kinetic_text_only(self, run_id: str, scenes: List[Dict], wavs: List[str], aspect: str, run_dir: str) -> str:

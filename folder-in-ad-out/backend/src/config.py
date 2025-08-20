@@ -31,9 +31,10 @@ class Settings(BaseSettings):
     uploads_dir: Path = base_dir / "uploads"
     outputs_dir: Path = base_dir / "outputs"
     
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+    model_config = {
+        "env_file": ".env",
+        "env_file_encoding": "utf-8"
+    }
 
 def get_settings() -> Settings:
     return Settings()
