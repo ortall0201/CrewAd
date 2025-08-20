@@ -1,30 +1,31 @@
 # Core FastAPI dependencies
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-python-multipart==0.0.6
-pydantic-settings==2.0.3
+fastapi==0.116.1
+uvicorn[standard]==0.35.0
+python-multipart==0.0.20
+pydantic-settings==2.10.1
 
 # TTS & Audio Processing
-# Note: kokoro package version may vary - install available version
-kokoro
-soundfile==0.12.1
-numpy==1.24.3
+kokoro-onnx==0.4.9
+soundfile==0.13.1
+numpy==1.26.4
+scipy==1.16.1
 
 # Video Processing
 moviepy==1.0.3
-imageio==2.31.5
-imageio-ffmpeg==0.4.9
+imageio==2.37.0
+imageio-ffmpeg==0.6.0
+Pillow==11.3.0
 
-# RAG & Vector Database
-chromadb==0.4.18
-sentence-transformers==2.2.2
+# RAG & Vector Database (compatible versions)
+chromadb==0.4.24
+sentence-transformers==5.1.0
 
 # Utility Libraries
 python-dotenv==1.0.0
-pathlib2==2.3.7
-typing-extensions==4.8.0
+typing-extensions==4.14.1
+aiofiles==24.1.0
 
-# Development Tools (optional)
-pytest==7.4.3
-pytest-asyncio==0.21.1
-httpx==0.25.2
+# Development Tools
+pytest==8.4.1
+pytest-asyncio==1.1.0
+httpx==0.28.1

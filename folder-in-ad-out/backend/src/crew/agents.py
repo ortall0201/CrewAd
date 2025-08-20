@@ -229,7 +229,7 @@ class NarratorAgent:
     def _synth_kokoro(self, text_lines: List[str], voice: str, lang: str, temp_dir: str) -> List[str]:
         """Synthesize using Kokoro-82M TTS"""
         try:
-            from kokoro import KPipeline
+            from kokoro_onnx import KPipeline
             import numpy as np
             import soundfile as sf
             
@@ -292,9 +292,27 @@ class NarratorAgent:
             wav_path = os.path.join(temp_dir, f"line_{idx:02d}.wav")
             
             try:
-                # Use espeak-ng to synthesize
-                cmd = [
+                # Use espeak-ng to synthesize - try multiple paths
+                espeak_paths = [
                     "espeak-ng",
+                    r"C:\Program Files\eSpeak NG\espeak-ng.exe",
+                    r"C:\Program Files (x86)\eSpeak NG\espeak-ng.exe"
+                ]
+                
+                espeak_cmd = None
+                for path in espeak_paths:
+                    try:
+                        subprocess.run([path, "--version"], check=True, capture_output=True)
+                        espeak_cmd = path
+                        break
+                    except (subprocess.CalledProcessError, FileNotFoundError):
+                        continue
+                
+                if not espeak_cmd:
+                    raise FileNotFoundError("espeak-ng not found in any path")
+                
+                cmd = [
+                    espeak_cmd,
                     "-v", f"{lang}+{voice}" if voice != "default" else lang,
                     "-s", "150",  # Speed
                     "-w", wav_path,  # Output file

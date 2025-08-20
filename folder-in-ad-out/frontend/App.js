@@ -37,7 +37,7 @@ function UploadForm({ onUploaded }) {
         });
 
         try {
-            const response = await fetch('/api/upload', {
+            const response = await fetch('http://localhost:8000/api/upload', {
                 method: 'POST',
                 body: formData,
             });
@@ -80,9 +80,10 @@ function UploadForm({ onUploaded }) {
                 onClick={() => document.getElementById('file-input').click()}
             >
                 <div className="drop-zone-text">
-                    {files.length > 0 ? `${files.length} files selected` : 'Drop files here or click to browse'}
+                    {files.length > 0 ? `${files.length} file${files.length > 1 ? 's' : ''} selected` : 'Drop files here or click to browse'}
                 </div>
                 <div className="drop-zone-subtext">
+                    Upload images, logos, audio, or text briefs (one or more files)<br/>
                     Support: Images (JPG, PNG, WebP), Audio (WAV, MP3), Text files (TXT, MD)
                 </div>
                 <input
@@ -120,7 +121,7 @@ function UploadForm({ onUploaded }) {
                     onClick={uploadFiles}
                     disabled={uploading || files.length === 0}
                 >
-                    {uploading ? 'Uploading...' : 'Upload Files'}
+                    {uploading ? 'Uploading...' : files.length === 1 ? 'Upload File' : 'Upload Files'}
                 </button>
             </div>
         </div>
@@ -149,7 +150,7 @@ function RunAgentButton({ runId }) {
         formData.append('run_id', runId);
 
         try {
-            const response = await fetch('/api/run', {
+            const response = await fetch('http://localhost:8000/api/run', {
                 method: 'POST',
                 body: formData,
             });
@@ -172,7 +173,7 @@ function RunAgentButton({ runId }) {
 
     const pollStatus = async () => {
         try {
-            const response = await fetch(`/api/status/${runId}`);
+            const response = await fetch(`http://localhost:8000/api/status/${runId}`);
             if (response.ok) {
                 const statusData = await response.json();
                 setStatus(statusData);
@@ -191,7 +192,7 @@ function RunAgentButton({ runId }) {
 
     const downloadVideo = async () => {
         try {
-            const response = await fetch(`/api/download/${runId}`);
+            const response = await fetch(`http://localhost:8000/api/download/${runId}`);
             if (response.ok) {
                 const blob = await response.blob();
                 const url = window.URL.createObjectURL(blob);

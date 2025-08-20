@@ -1,9 +1,8 @@
 import os
-import asyncio
 import logging
 import threading
-from datetime import datetime
-from typing import Dict, List, Any
+from datetime import datetime, timezone
+from typing import Dict, Any
 from ..config import settings
 from .tasks import (
     CurateTask, ScriptTask, DirectTask, NarrateTask,
@@ -22,7 +21,7 @@ def _set_status(run_id: str, step: str, status: str, extra: Any = None):
         if run_id not in _RUNS:
             _RUNS[run_id] = {
                 "run_id": run_id,
-                "started_at": datetime.utcnow().isoformat(),
+                "started_at": datetime.now(timezone.utc).isoformat(),
                 "steps": [],
                 "current_step": step,
                 "overall_status": status
@@ -31,7 +30,7 @@ def _set_status(run_id: str, step: str, status: str, extra: Any = None):
         step_info = {
             "step": step,
             "status": status,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "extra": extra or {}
         }
         
@@ -40,7 +39,7 @@ def _set_status(run_id: str, step: str, status: str, extra: Any = None):
         _RUNS[run_id]["overall_status"] = status
         
         if status in ["done", "complete"]:
-            _RUNS[run_id]["completed_at"] = datetime.utcnow().isoformat()
+            _RUNS[run_id]["completed_at"] = datetime.now(timezone.utc).isoformat()
 
 def get_run_status(run_id: str) -> Dict:
     """Get current pipeline status"""

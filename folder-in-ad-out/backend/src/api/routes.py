@@ -37,16 +37,29 @@ async def upload_files(files: List[UploadFile] = File(...)):
         if not file.filename:
             continue
             
-        # Validate file type
+        # Validate file type - check both MIME type and extension
         content_type = file.content_type
-        is_allowed = (
+        filename_lower = file.filename.lower()
+        
+        # Check by MIME type first
+        mime_type_allowed = (
             content_type in ALLOWED_IMAGE_TYPES or 
             content_type in ALLOWED_AUDIO_TYPES or 
             content_type in ALLOWED_TEXT_TYPES
         )
         
-        if not is_allowed:
-            logger.warning(f"Skipping unsupported file type: {content_type} for {file.filename}")
+        # Check by file extension as fallback
+        extension_allowed = (
+            # Images
+            filename_lower.endswith((".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp")) or
+            # Audio
+            filename_lower.endswith((".wav", ".mp3", ".m4a", ".aac", ".ogg")) or
+            # Text/documents
+            filename_lower.endswith((".txt", ".md", ".json"))
+        )
+        
+        if not (mime_type_allowed or extension_allowed):
+            logger.warning(f"Skipping unsupported file: {file.filename} (type: {content_type})")
             continue
         
         # Save file

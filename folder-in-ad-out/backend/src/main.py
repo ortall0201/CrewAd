@@ -21,19 +21,48 @@ def validate_dependencies():
         "espeak-ng": "espeak-ng"
     }
     
+    # Try alternative paths for Windows installations
+    windows_paths = {
+        "ffmpeg": [
+            "ffmpeg",
+            r"C:\ProgramData\chocolatey\bin\ffmpeg.exe",
+            r"C:\ProgramData\chocolatey\bin\ffmpeg",
+            r"C:\ffmpeg\bin\ffmpeg.exe",
+            r"C:\ffmpeg\bin\ffmpeg"
+        ],
+        "espeak-ng": [
+            "espeak-ng", 
+            r"C:\Program Files\eSpeak NG\espeak-ng.exe",
+            r"C:\Program Files (x86)\eSpeak NG\espeak-ng.exe"
+        ]
+    }
+    
     missing = []
     for name, cmd in dependencies.items():
-        try:
-            subprocess.run([cmd, "--version"], capture_output=True, check=True)
-            logger.info(f"✓ {name} is available")
-        except (subprocess.CalledProcessError, FileNotFoundError):
+        found = False
+        paths_to_try = windows_paths.get(name, [cmd])
+        
+        for path in paths_to_try:
+            try:
+                subprocess.run([path, "--version"], capture_output=True, check=True)
+                logger.info(f"✓ {name} is available at: {path}")
+                found = True
+                break
+            except (subprocess.CalledProcessError, FileNotFoundError):
+                continue
+        
+        if not found:
             missing.append(name)
-            logger.warning(f"✗ {name} not found")
+            logger.warning(f"✗ {name} not found in any of: {paths_to_try}")
     
     if missing:
-        logger.error(f"Missing dependencies: {', '.join(missing)}")
-        logger.error("Please install ffmpeg and espeak-ng before running")
-        sys.exit(1)
+        logger.warning(f"Missing dependencies: {', '.join(missing)}")
+        logger.warning("Some video features may not work properly. Install missing dependencies for full functionality")
+        # Allow startup but warn about missing dependencies
+        if "espeak-ng" in missing:
+            logger.error("espeak-ng is required for voice synthesis. Please install it.")
+        if "ffmpeg" in missing:
+            logger.warning("ffmpeg is required for video processing. Video rendering may fail.")
 
 def validate_python_packages():
     """Validate required Python packages"""
