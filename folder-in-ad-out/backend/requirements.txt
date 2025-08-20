@@ -1,0 +1,29 @@
+# Core FastAPI dependencies
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+pydantic-settings==2.0.3
+
+# TTS & Audio Processing
+kokoro==0.1.1
+soundfile==0.12.1
+numpy==1.24.3
+
+# Video Processing
+moviepy==1.0.3
+imageio==2.31.5
+imageio-ffmpeg==0.4.9
+
+# RAG & Vector Database
+chromadb==0.4.18
+sentence-transformers==2.2.2
+
+# Utility Libraries
+python-dotenv==1.0.0
+pathlib2==2.3.7
+typing-extensions==4.8.0
+
+# Development Tools (optional)
+pytest==7.4.3
+pytest-asyncio==0.21.1
+httpx==0.25.2

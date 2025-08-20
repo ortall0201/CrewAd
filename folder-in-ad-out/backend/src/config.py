@@ -1,18 +1,45 @@
 import os
-from pydantic import BaseModel
+from pathlib import Path
+from pydantic_settings import BaseSettings
+from typing import Optional
 
-class Settings(BaseModel):
-    upload_dir: str = os.getenv("UPLOAD_DIR", "./uploads")
-    output_dir: str = os.getenv("OUTPUT_DIR", "./outputs")
+class Settings(BaseSettings):
+    # API settings
+    api_host: str = "0.0.0.0"
+    api_port: int = 8000
+    debug: bool = True
+    
+    # TTS settings
+    tts_provider: str = "kokoro"  # kokoro, espeak, openai
+    kokoro_model: str = "kokoro-v0_19"
+    kokoro_lang: str = "a"
+    kokoro_voice: str = "af_heart"
+    openai_api_key: Optional[str] = None
+    
+    # Video settings
+    video_fps: int = 30
+    video_codec: str = "libx264"
+    audio_codec: str = "aac"
+    
+    # RAG settings
+    rag_enabled: bool = True
+    rag_model: str = "all-MiniLM-L6-v2"
+    vector_store_path: str = "./backend/src/rag/index_db"
+    
+    # File paths
+    base_dir: Path = Path(__file__).parent.parent.parent
+    uploads_dir: Path = base_dir / "uploads"
+    outputs_dir: Path = base_dir / "outputs"
+    
+    class Config:
+        env_file = ".env"
+        env_file_encoding = "utf-8"
 
-    tts_engine: str = os.getenv("TTS_ENGINE", "kokoro")
-    kokoro_lang: str = os.getenv("KOKORO_LANG", "a")
-    kokoro_voice: str = os.getenv("KOKORO_VOICE", "af_heart")
-    kokoro_provider: str = os.getenv("KOKORO_PROVIDER", "local")
-    kokoro_provider_url: str = os.getenv("KOKORO_PROVIDER_URL", "")
+def get_settings() -> Settings:
+    return Settings()
 
-    vector_store_path: str = os.getenv("VECTOR_STORE", "./backend/src/rag/index_db")
+settings = get_settings()
 
-settings = Settings()
-os.makedirs(settings.upload_dir, exist_ok=True)
-os.makedirs(settings.output_dir, exist_ok=True)
+# Ensure directories exist
+settings.uploads_dir.mkdir(exist_ok=True)
+settings.outputs_dir.mkdir(exist_ok=True)

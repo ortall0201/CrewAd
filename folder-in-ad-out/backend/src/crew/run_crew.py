@@ -1,49 +1,213 @@
-import os, asyncio
-from typing import Dict
+import os
+import asyncio
+import logging
+import threading
+from datetime import datetime
+from typing import Dict, List, Any
 from ..config import settings
-from .tasks import task_curate, task_script, task_direct, task_tts, task_edit, task_qa
+from .tasks import (
+    CurateTask, ScriptTask, DirectTask, NarrateTask,
+    MusicTask, EditTask, QATask
+)
 
-_RUNS: Dict[str, Dict] = {}  # in-memory status; replace with Redis in prod
+logger = logging.getLogger(__name__)
 
-def _set_status(run_id, step, status, extra=None):
-    _RUNS.setdefault(run_id, {"steps": []})
-    _RUNS[run_id]["steps"].append({"step": step, "status": status, "extra": extra})
+# Thread-safe in-memory status storage (replace with Redis in production)
+_runs_lock = threading.Lock()
+_RUNS: Dict[str, Dict] = {}
 
-def get_run_status(run_id: str):
-    return _RUNS.get(run_id, {"steps": []})
+def _set_status(run_id: str, step: str, status: str, extra: Any = None):
+    """Thread-safe status update"""
+    with _runs_lock:
+        if run_id not in _RUNS:
+            _RUNS[run_id] = {
+                "run_id": run_id,
+                "started_at": datetime.utcnow().isoformat(),
+                "steps": [],
+                "current_step": step,
+                "overall_status": status
+            }
+        
+        step_info = {
+            "step": step,
+            "status": status,
+            "timestamp": datetime.utcnow().isoformat(),
+            "extra": extra or {}
+        }
+        
+        _RUNS[run_id]["steps"].append(step_info)
+        _RUNS[run_id]["current_step"] = step
+        _RUNS[run_id]["overall_status"] = status
+        
+        if status in ["done", "complete"]:
+            _RUNS[run_id]["completed_at"] = datetime.utcnow().isoformat()
 
-async def run_pipeline(run_id: str, target_length: int, tone: str, voice: str, aspect: str):
-    run_dir = os.path.join(settings.upload_dir, run_id)
-    out_dir = os.path.join(settings.output_dir, run_id)
-    os.makedirs(out_dir, exist_ok=True)
+def get_run_status(run_id: str) -> Dict:
+    """Get current pipeline status"""
+    with _runs_lock:
+        return _RUNS.get(run_id, {
+            "run_id": run_id,
+            "steps": [],
+            "current_step": "not_found",
+            "overall_status": "not_found"
+        })
 
-    try:
-        _set_status(run_id, "curate", "start")
-        assets = task_curate(run_dir)
-        _set_status(run_id, "curate", "done", {"counts": {k: len(v) if isinstance(v, list) else int(bool(v)) for k,v in assets.items()}})
+def list_all_runs() -> Dict:
+    """Get all run statuses"""
+    with _runs_lock:
+        return dict(_RUNS)
 
-        _set_status(run_id, "script", "start")
-        script = task_script(assets, target_length, tone)
-        _set_status(run_id, "script", "done", {"chars": len(script)})
+class AdCreationPipeline:
+    """Main pipeline orchestrator"""
+    
+    def __init__(self):
+        self.tasks = {
+            "curate": CurateTask(),
+            "script": ScriptTask(),
+            "direct": DirectTask(),
+            "narrate": NarrateTask(),
+            "music": MusicTask(),
+            "edit": EditTask(),
+            "qa": QATask()
+        }
+    
+    async def run(self, run_id: str, target_length: int, tone: str, voice: str, aspect: str) -> Dict:
+        """Execute the complete ad creation pipeline"""
+        logger.info(f"Starting pipeline for run {run_id}")
+        
+        run_dir = os.path.join(settings.uploads_dir, run_id)
+        output_dir = os.path.join(settings.outputs_dir, run_id)
+        os.makedirs(output_dir, exist_ok=True)
+        
+        try:
+            # 1. Asset Curation
+            _set_status(run_id, "curate", "running")
+            assets = self.tasks["curate"].execute(run_dir=run_dir)
+            _set_status(run_id, "curate", "completed", {
+                "image_count": len(assets.get("images", [])),
+                "logo_count": len(assets.get("logos", [])),
+                "audio_count": len(assets.get("audio", [])),
+                "has_brief": bool(assets.get("brief"))
+            })
+            
+            # 2. Script Generation
+            _set_status(run_id, "script", "running")
+            script = self.tasks["script"].execute(
+                assets=assets,
+                target_length=target_length,
+                tone=tone,
+                run_dir=run_dir
+            )
+            _set_status(run_id, "script", "completed", {
+                "script_length": len(script),
+                "word_count": len(script.split())
+            })
+            
+            # 3. Storyboard Creation
+            _set_status(run_id, "direct", "running")
+            shots = self.tasks["direct"].execute(
+                script=script,
+                assets=assets,
+                run_dir=run_dir
+            )
+            _set_status(run_id, "direct", "completed", {
+                "scene_count": len(shots.get("scenes", []))
+            })
+            
+            # 4. Voice Synthesis
+            _set_status(run_id, "narrate", "running")
+            wavs = self.tasks["narrate"].execute(
+                shots=shots,
+                voice=voice,
+                lang=settings.kokoro_lang,
+                run_dir=run_dir
+            )
+            _set_status(run_id, "narrate", "completed", {
+                "audio_files": len(wavs),
+                "tts_provider": settings.tts_provider
+            })
+            
+            # 5. Music Supervision (MVP: skip)
+            _set_status(run_id, "music", "running")
+            music_path = self.tasks["music"].execute(run_dir=run_dir)
+            _set_status(run_id, "music", "completed", {
+                "has_music": bool(music_path)
+            })
+            
+            # 6. Video Editing
+            _set_status(run_id, "edit", "running")
+            video_path = self.tasks["edit"].execute(
+                run_id=run_id,
+                shots=shots,
+                wavs=wavs,
+                aspect=aspect,
+                run_dir=run_dir
+            )
+            _set_status(run_id, "edit", "completed", {
+                "video_path": video_path,
+                "file_exists": os.path.exists(video_path) if video_path else False
+            })
+            
+            # 7. Quality Assurance
+            _set_status(run_id, "qa", "running")
+            qa_result = self.tasks["qa"].execute(
+                video_path=video_path,
+                run_id=run_id,
+                shots=shots,
+                run_dir=run_dir
+            )
+            _set_status(run_id, "qa", "completed", qa_result)
+            
+            # Pipeline complete
+            success = qa_result.get("status") == "ok"
+            _set_status(run_id, "complete", "success" if success else "failed", {
+                "final_video": video_path,
+                "success": success,
+                "duration": qa_result.get("duration", 0)
+            })
+            
+            logger.info(f"Pipeline completed for run {run_id}: {'success' if success else 'failed'}")
+            return {
+                "success": success,
+                "run_id": run_id,
+                "video_path": video_path,
+                "metadata": qa_result
+            }
+            
+        except Exception as e:
+            logger.error(f"Pipeline failed for run {run_id}: {e}")
+            _set_status(run_id, "error", "failed", {
+                "error": str(e),
+                "error_type": type(e).__name__
+            })
+            return {
+                "success": False,
+                "run_id": run_id,
+                "error": str(e)
+            }
 
-        _set_status(run_id, "direct", "start")
-        shots = task_direct(script, assets)
-        _set_status(run_id, "direct", "done", {"scenes": len(shots["scenes"])})
+# Global pipeline instance
+_pipeline = AdCreationPipeline()
 
-        _set_status(run_id, "tts", "start")
-        wavs = task_tts(shots, voice=voice, lang=settings.kokoro_lang)
-        _set_status(run_id, "tts", "done", {"wavs": len(wavs)})
+async def run_pipeline(run_id: str, target_length: int, tone: str, voice: str, aspect: str) -> Dict:
+    """Execute the ad creation pipeline"""
+    return await _pipeline.run(run_id, target_length, tone, voice, aspect)
 
-        _set_status(run_id, "edit", "start")
-        out_path = task_edit(run_id, shots, wavs, aspect)
-        _set_status(run_id, "edit", "done", {"path": out_path})
-
-        _set_status(run_id, "qa", "start")
-        qa = task_qa(out_path)
-        _set_status(run_id, "qa", "done", qa)
-
-        _set_status(run_id, "complete", "done", {"success": qa.get("ok", False)})
-        return {"ok": True}
-    except Exception as e:
-        _set_status(run_id, "error", "fail", {"error": str(e)})
-        return {"ok": False, "error": str(e)}
+def get_pipeline_stats() -> Dict:
+    """Get overall pipeline statistics"""
+    with _runs_lock:
+        total_runs = len(_RUNS)
+        successful_runs = sum(1 for run in _RUNS.values() 
+                             if run.get("overall_status") == "success")
+        failed_runs = sum(1 for run in _RUNS.values() 
+                         if run.get("overall_status") == "failed")
+        running_runs = sum(1 for run in _RUNS.values() 
+                          if run.get("overall_status") == "running")
+        
+        return {
+            "total_runs": total_runs,
+            "successful_runs": successful_runs,
+            "failed_runs": failed_runs,
+            "running_runs": running_runs,
+            "success_rate": (successful_runs / total_runs * 100) if total_runs > 0 else 0
+        }

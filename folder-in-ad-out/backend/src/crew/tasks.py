@@ -1,38 +1,118 @@
-import os, json
-from typing import Dict
+import os
+import json
+import logging
+from typing import Dict, List, Any
 from .agents import (
     AssetCuratorAgent, ScriptwrightAgent, DirectorAgent,
     NarratorAgent, MusicSupervisorAgent, EditorAgent, QAAgent
 )
-from ..api.utils import write_json
 from ..config import settings
 
-def task_curate(run_dir: str) -> Dict:
-    curator = AssetCuratorAgent()
-    assets = curator.curate(run_dir)
-    write_json(os.path.join(run_dir, "assets.json"), assets)
-    return assets
+logger = logging.getLogger(__name__)
 
-def task_script(assets: Dict, target_length: int, tone: str) -> str:
-    brief_text = ""
-    if assets.get("brief"):
-        with open(assets["brief"], "r", encoding="utf-8") as f:
-            brief_text = f.read()
-    s = ScriptwrightAgent().draft(brief_text, target_length, tone)
-    return s
+class PipelineTask:
+    """Base class for pipeline tasks with logging and error handling"""
+    
+    def __init__(self, task_name: str):
+        self.task_name = task_name
+        
+    def execute(self, **kwargs) -> Any:
+        """Execute task with error handling and logging"""
+        logger.info(f"Starting task: {self.task_name}")
+        try:
+            result = self._run(**kwargs)
+            logger.info(f"Completed task: {self.task_name}")
+            return result
+        except Exception as e:
+            logger.error(f"Task {self.task_name} failed: {e}")
+            raise
+            
+    def _run(self, **kwargs) -> Any:
+        """Override in subclasses"""
+        raise NotImplementedError
 
-def task_direct(script: str, assets: Dict) -> Dict:
-    shots = DirectorAgent().storyboard(script, assets.get("images", []))
-    return shots
+class CurateTask(PipelineTask):
+    """Asset curation task"""
+    
+    def __init__(self):
+        super().__init__("Asset Curation")
+        
+    def _run(self, run_dir: str) -> Dict:
+        """Scan and categorize uploaded assets"""
+        curator = AssetCuratorAgent()
+        assets = curator.curate(run_dir)
+        return assets
 
-def task_tts(shots: Dict, voice: str, lang: str) -> list:
-    lines = [s["line"] for s in shots["scenes"]]
-    wavs = NarratorAgent().synth(lines, voice=voice, lang=lang)
-    return wavs
+class ScriptTask(PipelineTask):
+    """Script generation task"""
+    
+    def __init__(self):
+        super().__init__("Script Generation")
+        
+    def _run(self, assets: Dict, target_length: int, tone: str, run_dir: str) -> str:
+        """Generate script from brief and requirements"""
+        scriptwright = ScriptwrightAgent()
+        brief_path = assets.get("brief")
+        script = scriptwright.draft(brief_path, target_length, tone, run_dir)
+        return script
 
-def task_edit(run_id: str, shots: Dict, wavs: list, aspect: str) -> str:
-    path = EditorAgent().render(run_id, shots, wavs, aspect)
-    return path
+class DirectTask(PipelineTask):
+    """Storyboard/directing task"""
+    
+    def __init__(self):
+        super().__init__("Storyboard Creation")
+        
+    def _run(self, script: str, assets: Dict, run_dir: str) -> Dict:
+        """Create visual storyboard from script and assets"""
+        director = DirectorAgent()
+        shots = director.storyboard(script, assets.get("images", []), run_dir)
+        return shots
 
-def task_qa(path: str) -> Dict:
-    return QAAgent().audit(path)
+class NarrateTask(PipelineTask):
+    """Text-to-speech task"""
+    
+    def __init__(self):
+        super().__init__("Voice Synthesis")
+        
+    def _run(self, shots: Dict, voice: str, lang: str, run_dir: str) -> List[str]:
+        """Generate TTS audio for each script line"""
+        narrator = NarratorAgent()
+        lines = [scene["line"] for scene in shots["scenes"]]
+        wavs = narrator.synth(lines, voice, lang, run_dir)
+        return wavs
+
+class MusicTask(PipelineTask):
+    """Music supervision task (MVP: stub)"""
+    
+    def __init__(self):
+        super().__init__("Music Supervision")
+        
+    def _run(self, run_dir: str) -> str:
+        """Select and process background music"""
+        supervisor = MusicSupervisorAgent()
+        music_path = supervisor.pick_and_duck(run_dir)
+        return music_path or ""
+
+class EditTask(PipelineTask):
+    """Video editing/rendering task"""
+    
+    def __init__(self):
+        super().__init__("Video Rendering")
+        
+    def _run(self, run_id: str, shots: Dict, wavs: List[str], aspect: str, run_dir: str) -> str:
+        """Render final video with effects and audio"""
+        editor = EditorAgent()
+        video_path = editor.render(run_id, shots, wavs, aspect, run_dir)
+        return video_path
+
+class QATask(PipelineTask):
+    """Quality assurance task"""
+    
+    def __init__(self):
+        super().__init__("Quality Assurance")
+        
+    def _run(self, video_path: str, run_id: str, shots: Dict, run_dir: str) -> Dict:
+        """Validate output and generate metadata"""
+        qa_agent = QAAgent()
+        result = qa_agent.audit(video_path, run_id, shots, run_dir)
+        return result
