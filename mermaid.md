@@ -5,68 +5,68 @@ This Mermaid diagram illustrates the complete user journey from file upload to v
 ```mermaid
 graph TD
     %% User Actions
-    User[👤 User] --> Upload[📁 Upload Files<br/>Drag & Drop]
-    Upload --> Config[⚙️ Configure Parameters<br/>Length: 30s<br/>Tone: confident<br/>Aspect: 16:9]
+    User[User] --> Upload[Upload Files]
+    Upload --> Config[Configure Parameters]
     
     %% Frontend Components
-    Upload --> UploadForm[🌐 UploadForm Component]
-    Config --> RunButton[🌐 RunAgentButton Component]
+    Upload --> UploadForm[UploadForm Component]
+    Config --> RunButton[RunAgentButton Component]
     
     %% API Endpoints
-    UploadForm --> |POST /api/upload| UploadAPI[📡 Upload Handler]
-    RunButton --> |POST /api/run| RunAPI[📡 Run Handler]
-    RunButton --> |GET /api/status/{id}| StatusAPI[📡 Status Handler]
-    RunButton --> |GET /api/download/{id}| DownloadAPI[📡 Download Handler]
+    UploadForm --> |POST /api/upload| UploadAPI[Upload Handler]
+    RunButton --> |POST /api/run| RunAPI[Run Handler]
+    RunButton --> |GET /api/status| StatusAPI[Status Handler]
+    RunButton --> |GET /api/download| DownloadAPI[Download Handler]
     
     %% Backend Processing
-    UploadAPI --> FileValidation{🔍 Validate Files<br/>Images/Audio/Text}
-    FileValidation --> |Valid| SaveFiles[💾 Save to uploads/{run_id}/]
-    FileValidation --> |Invalid| Reject[❌ Reject Files]
-    SaveFiles --> ReturnRunID[📋 Return run_id]
+    UploadAPI --> FileValidation[Validate Files]
+    FileValidation --> |Valid| SaveFiles[Save to uploads/run_id/]
+    FileValidation --> |Invalid| Reject[Reject Files]
+    SaveFiles --> ReturnRunID[Return run_id]
     
-    RunAPI --> ValidateParams{✅ Validate Parameters}
-    ValidateParams --> |Valid| BackgroundTask[🔄 Queue Background Task]
-    ValidateParams --> |Invalid| ParamError[❌ Parameter Error]
+    RunAPI --> ValidateParams[Validate Parameters]
+    ValidateParams --> |Valid| BackgroundTask[Queue Background Task]
+    ValidateParams --> |Invalid| ParamError[Parameter Error]
     
     %% CrewAI Pipeline
-    BackgroundTask --> Pipeline[🤖 AdCreationPipeline]
+    BackgroundTask --> Pipeline[AdCreationPipeline]
     
-    Pipeline --> Step1[1️⃣ CURATE<br/>AssetCuratorAgent<br/>Categorize files]
-    Step1 --> Step2[2️⃣ SCRIPT<br/>ScriptwrightAgent<br/>Generate ad copy]
-    Step2 --> Step3[3️⃣ DIRECT<br/>DirectorAgent<br/>Create storyboard]
-    Step3 --> Step4[4️⃣ NARRATE<br/>NarratorAgent<br/>Kokoro TTS synthesis]
-    Step4 --> Step5[5️⃣ MUSIC<br/>MusicSupervisorAgent<br/>Background audio]
-    Step5 --> Step6[6️⃣ EDIT<br/>EditorAgent<br/>MoviePy + ffmpeg]
-    Step6 --> Step7[7️⃣ QA<br/>QAAgent<br/>Quality validation]
+    Pipeline --> Step1[1. CURATE - AssetCuratorAgent]
+    Step1 --> Step2[2. SCRIPT - ScriptwrightAgent]
+    Step2 --> Step3[3. DIRECT - DirectorAgent]
+    Step3 --> Step4[4. NARRATE - NarratorAgent]
+    Step4 --> Step5[5. MUSIC - MusicSupervisorAgent]
+    Step5 --> Step6[6. EDIT - EditorAgent]
+    Step6 --> Step7[7. QA - QAAgent]
     
     %% Status Updates
-    Step1 --> |Update Status| StatusStore[(🗄️ In-Memory Status Store<br/>Thread-safe with locks)]
-    Step2 --> |Update Status| StatusStore
-    Step3 --> |Update Status| StatusStore
-    Step4 --> |Update Status| StatusStore
-    Step5 --> |Update Status| StatusStore
-    Step6 --> |Update Status| StatusStore
-    Step7 --> |Update Status| StatusStore
+    Step1 --> StatusStore[In-Memory Status Store]
+    Step2 --> StatusStore
+    Step3 --> StatusStore
+    Step4 --> StatusStore
+    Step5 --> StatusStore
+    Step6 --> StatusStore
+    Step7 --> StatusStore
     
     StatusStore --> StatusAPI
-    StatusAPI --> |JSON Response| StatusUI[📊 Status UI<br/>Progress Bar<br/>Step indicators]
+    StatusAPI --> StatusUI[Status UI with Progress Bar]
     
     %% Polling Loop
     StatusUI --> |Poll every 2s| StatusAPI
     
     %% Final Output
-    Step7 --> |Success| FinalVideo[🎬 outputs/{run_id}/ad_final.mp4]
-    Step7 --> |Failure| ErrorState[💥 Error State]
+    Step7 --> |Success| FinalVideo[outputs/run_id/ad_final.mp4]
+    Step7 --> |Failure| ErrorState[Error State]
     
     FinalVideo --> DownloadAPI
-    DownloadAPI --> |FileResponse| VideoDownload[⬇️ Download Video<br/>Browser saves file]
+    DownloadAPI --> VideoDownload[Download Video]
     
     %% Storage
-    SaveFiles --> UploadsDir[(📂 uploads/{run_id}/<br/>- image1.jpg<br/>- logo.png<br/>- audio.wav<br/>- brief.txt)]
-    FinalVideo --> OutputsDir[(📂 outputs/{run_id}/<br/>- ad_final.mp4)]
+    SaveFiles --> UploadsDir[uploads/run_id/files]
+    FinalVideo --> OutputsDir[outputs/run_id/video]
     
     %% Error Handling
-    Reject --> ErrorUI[❌ Upload Error UI]
+    Reject --> ErrorUI[Upload Error UI]
     ParamError --> ErrorUI
     ErrorState --> ErrorUI
     
