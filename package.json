@@ -1,0 +1,23 @@
+{
+  "name": "crewad",
+  "version": "1.0.0",
+  "description": "AI-native ad studio. Upload a folder of still images, logos, and a short brief — get back a polished video advertisement (with narration, music, and motion) in minutes. Powered by CrewAI-style multi-agent orchestration and Kokoro TTS.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ortall0201/CrewAd.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ortall0201/CrewAd/issues"
+  },
+  "homepage": "https://github.com/ortall0201/CrewAd#readme",
+  "dependencies": {
+    "playwright": "^1.55.0"
+  }
+}
