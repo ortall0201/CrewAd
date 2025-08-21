@@ -44,7 +44,9 @@ def validate_dependencies():
         
         for path in paths_to_try:
             try:
-                subprocess.run([path, "--version"], capture_output=True, check=True)
+                # Use appropriate version flag for each tool
+                version_flag = "-version" if name == "ffmpeg" else "--version"
+                subprocess.run([path, version_flag], capture_output=True, check=True)
                 logger.info(f"✓ {name} is available at: {path}")
                 found = True
                 break
@@ -107,7 +109,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Configure appropriately for production
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 

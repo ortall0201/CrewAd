@@ -7,7 +7,7 @@ pydantic-settings==2.10.1
 # TTS & Audio Processing
 kokoro-onnx==0.4.9
 soundfile==0.13.1
-numpy==1.26.4
+numpy>=1.26.4,<3.0.0
 scipy==1.16.1
 
 # Video Processing

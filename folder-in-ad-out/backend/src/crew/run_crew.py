@@ -126,7 +126,7 @@ class AdCreationPipeline:
                 "tts_provider": settings.tts_provider
             })
             
-            # 5. Music Supervision (MVP: skip)
+            # 5. Music Supervision
             _set_status(run_id, "music", "running")
             music_path = self.tasks["music"].execute(run_dir=run_dir)
             _set_status(run_id, "music", "completed", {
