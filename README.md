@@ -137,6 +137,35 @@ The frontend will be available at `http://localhost:3000`
 - Monitor real-time progress through 7 pipeline stages
 - Download your finished MP4 when complete
 
+### Quick Test Commands
+
+**Manual API Testing:**
+```bash
+# 1. Upload files
+curl -X POST http://localhost:8000/api/upload \
+  -F "files=@image.jpg" \
+  -F "files=@brief.txt"
+
+# 2. Start pipeline (use run_id from upload response)
+curl -X POST http://localhost:8000/api/run \
+  -F "run_id=YOUR_RUN_ID" \
+  -F "target_length=30" \
+  -F "tone=confident"
+
+# 3. Check status
+curl http://localhost:8000/api/status/YOUR_RUN_ID
+
+# 4. Download video
+curl http://localhost:8000/api/download/YOUR_RUN_ID -o ad_final.mp4
+```
+
+**Automated Testing:**
+```bash
+cd folder-in-ad-out/backend
+.venv\Scripts\activate
+python -m src.cli.smoke
+```
+
 ## 🔧 Pipeline Flow & Architecture
 
 ### Complete User Journey

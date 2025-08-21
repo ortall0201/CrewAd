@@ -5,43 +5,151 @@ from typing import List, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
-class StyleRAGIndex:
-    """Simple RAG system for style guidance using ChromaDB"""
-    
-    def __init__(self, persist_directory: str = None):
-        self.persist_directory = persist_directory or "./backend/src/rag/index_db"
-        self.collection = None
-        self._initialized = False
+# Use environment variable or default path
+DB_PATH = os.getenv("VECTOR_STORE", "./src/rag/index_db")
+
+def get_collection(name="brand_style"):
+    """Get or create ChromaDB collection with 0.5.x API"""
+    try:
+        import chromadb
+        from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
         
-    def initialize(self):
-        """Initialize ChromaDB collection"""
-        if self._initialized:
+        # Create client with modern API
+        client = chromadb.PersistentClient(path=DB_PATH)
+        
+        # Create embedding function
+        embedding_function = SentenceTransformerEmbeddingFunction(
+            model_name="all-MiniLM-L6-v2"
+        )
+        
+        # Get or create collection
+        collection = client.get_or_create_collection(
+            name=name,
+            embedding_function=embedding_function
+        )
+        
+        return collection
+        
+    except ImportError:
+        logger.warning("ChromaDB not available, RAG features disabled")
+        return None
+    except Exception as e:
+        logger.error(f"ChromaDB initialization failed: {e}")
+        return None
+
+def upsert_docs(docs: List[Dict]):
+    """Upsert documents to ChromaDB collection"""
+    try:
+        collection = get_collection()
+        if collection is None:
+            logger.warning("ChromaDB not available, skipping document upsert")
             return
             
+        collection.upsert(
+            ids=[doc["id"] for doc in docs],
+            documents=[doc["text"] for doc in docs],
+            metadatas=[doc.get("metadata", {}) for doc in docs]
+        )
+        
+        logger.info(f"Upserted {len(docs)} documents to ChromaDB")
+        
+    except Exception as e:
+        logger.error(f"Document upsert failed: {e}")
+
+def search(query: str, k: int = 3) -> str:
+    """Search documents and return concatenated results"""
+    try:
+        collection = get_collection()
+        if collection is None:
+            logger.warning("ChromaDB not available for search")
+            return ""
+            
+        results = collection.query(
+            query_texts=[query],
+            n_results=k
+        )
+        
+        # Extract documents from results
+        documents = results.get("documents", [[]])[0]
+        
+        if not documents:
+            logger.info(f"No documents found for query: {query}")
+            return ""
+            
+        # Join results with separator
+        combined = "\n\n".join(documents)
+        logger.info(f"Found {len(documents)} documents for query")
+        
+        return combined
+        
+    except Exception as e:
+        logger.error(f"Document search failed: {e}")
+        return ""
+
+def initialize_knowledge_base():
+    """Initialize RAG knowledge base with default documents"""
+    try:
+        # Load documents from the documents directory
+        docs_dir = Path(__file__).parent / "documents"
+        if not docs_dir.exists():
+            logger.info("No documents directory found, skipping RAG initialization")
+            return
+            
+        documents = []
+        for file_path in docs_dir.glob("*.md"):
+            try:
+                content = file_path.read_text(encoding="utf-8")
+                documents.append({
+                    "id": file_path.stem,
+                    "text": content,
+                    "metadata": {
+                        "source": str(file_path),
+                        "type": "knowledge_base"
+                    }
+                })
+            except Exception as e:
+                logger.error(f"Failed to read {file_path}: {e}")
+        
+        if documents:
+            upsert_docs(documents)
+            logger.info(f"Initialized knowledge base with {len(documents)} documents")
+        else:
+            logger.info("No documents found to initialize knowledge base")
+            
+    except Exception as e:
+        logger.error(f"Knowledge base initialization failed: {e}")
+
+def get_brand_context(query: str) -> str:
+    """Get brand context for script generation (optional RAG)"""
+    try:
+        context = search(query, k=2)
+        if context:
+            return f"Brand guidelines:\n{context}\n\n"
+        return ""
+    except Exception:
+        # Gracefully handle RAG failures
+        return ""
+
+class StyleRAGIndex:
+    """Legacy compatibility class - use module functions instead"""
+    
+    def __init__(self, persist_directory: str = None):
+        logger.warning("StyleRAGIndex is deprecated, use module functions instead")
+        self._initialized = False
+        self.persist_directory = persist_directory or DB_PATH
+        self.collection = None
+    
+    def initialize(self):
+        """Initialize the RAG index"""
         try:
-            import chromadb
-            from chromadb.config import Settings
-            
-            # Create client with persistent storage
-            self.client = chromadb.PersistentClient(
-                path=self.persist_directory,
-                settings=Settings(anonymized_telemetry=False)
-            )
-            
-            # Get or create collection
-            self.collection = self.client.get_or_create_collection(
-                name="style_guidance",
-                metadata={"description": "Style guidance for ad copywriting"}
-            )
-            
-            self._initialized = True
-            logger.info(f"RAG index initialized at {self.persist_directory}")
-            
-        except ImportError:
-            logger.warning("ChromaDB not available, RAG features disabled")
-            self._initialized = False
+            self.collection = get_collection("style_guidance")
+            self._initialized = (self.collection is not None)
+            if self._initialized:
+                logger.info("StyleRAGIndex initialized successfully")
+            else:
+                logger.warning("StyleRAGIndex initialization failed - ChromaDB not available")
         except Exception as e:
-            logger.error(f"Failed to initialize RAG index: {e}")
+            logger.error(f"StyleRAGIndex initialization failed: {e}")
             self._initialized = False
     
     def add_documents(self, documents: List[Dict[str, str]]):
@@ -54,11 +162,8 @@ class StyleRAGIndex:
             return False
             
         try:
-            # Prepare data for ChromaDB
-            ids = []
-            texts = []
-            metadatas = []
-            
+            # Convert legacy format to new format
+            docs = []
             for i, doc in enumerate(documents):
                 doc_id = doc.get('id', f"doc_{i}")
                 text = doc.get('content', '')
@@ -69,17 +174,14 @@ class StyleRAGIndex:
                     'source': doc.get('source', 'manual')
                 }
                 
-                ids.append(doc_id)
-                texts.append(text)
-                metadatas.append(metadata)
+                docs.append({
+                    'id': doc_id,
+                    'text': text,
+                    'metadata': metadata
+                })
             
-            # Add to collection
-            self.collection.add(
-                documents=texts,
-                metadatas=metadatas,
-                ids=ids
-            )
-            
+            # Use modern API
+            upsert_docs(docs)
             logger.info(f"Added {len(documents)} documents to RAG index")
             return True
             
@@ -145,32 +247,50 @@ def initialize_rag_system():
     """Initialize the RAG system with seed documents"""
     logger.info("Initializing RAG system...")
     
-    # Initialize the index
-    _rag_index.initialize()
-    
-    # Check if we already have documents
-    info = _rag_index.get_collection_info()
-    if info.get("document_count", 0) > 0:
-        logger.info(f"RAG system already has {info['document_count']} documents")
-        return
-    
-    # Add seed documents
-    seed_docs = get_seed_documents()
-    if seed_docs:
-        success = _rag_index.add_documents(seed_docs)
-        if success:
+    try:
+        # Check if we already have documents using modern API
+        collection = get_collection("brand_style")
+        if collection is None:
+            logger.warning("ChromaDB not available, RAG system not initialized")
+            return
+            
+        existing_count = collection.count()
+        if existing_count > 0:
+            logger.info(f"RAG system already has {existing_count} documents")
+            return
+        
+        # Add seed documents using modern API
+        seed_docs = get_seed_documents()
+        if seed_docs:
+            # Convert to modern format
+            docs = []
+            for doc in seed_docs:
+                docs.append({
+                    'id': doc['id'],
+                    'text': doc['content'],
+                    'metadata': {
+                        'title': doc.get('title', ''),
+                        'category': doc.get('category', 'general'),
+                        'tone': doc.get('tone', ''),
+                        'source': doc.get('source', 'builtin')
+                    }
+                })
+            
+            upsert_docs(docs)
             logger.info(f"Added {len(seed_docs)} seed documents to RAG system")
         else:
-            logger.warning("Failed to add seed documents")
-    else:
-        logger.info("No seed documents to add")
+            logger.info("No seed documents to add")
+            
+    except Exception as e:
+        logger.error(f"RAG system initialization failed: {e}")
 
 def fetch_style_hints(prompt: str) -> str:
     """Fetch style hints based on prompt - main interface for agents"""
     try:
-        results = _rag_index.search(prompt, n_results=2)
-        if results:
-            return "\n\n".join(results)
+        # Use modern search API
+        results_text = search(prompt, k=2)
+        if results_text:
+            return results_text
         else:
             return ""
     except Exception as e:

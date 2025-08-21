@@ -1,31 +1,32 @@
 # Core FastAPI dependencies
-fastapi==0.116.1
-uvicorn[standard]==0.35.0
-python-multipart==0.0.20
-pydantic-settings==2.10.1
+fastapi>=0.110,<1
+uvicorn[standard]>=0.29
+pydantic>=2.6
+pydantic-settings>=2.2
+python-multipart>=0.0.9
+aiofiles>=23.2
+
+# Core dependencies
+numpy>=1.26
+pillow>=10.3
+imageio>=2.34
+imageio-ffmpeg>=0.4.9
+soundfile>=0.12
+moviepy>=1.0.3
 
 # TTS & Audio Processing
-kokoro-onnx==0.4.9
-soundfile==0.13.1
-numpy>=1.26.4,<3.0.0
-scipy==1.16.1
+kokoro-onnx>=0.4.9
+misaki[en]>=0.0.8
 
-# Video Processing
-moviepy==1.0.3
-imageio==2.37.0
-imageio-ffmpeg==0.6.0
-Pillow==11.3.0
-
-# RAG & Vector Database (compatible versions)
-chromadb==0.4.24
-sentence-transformers==5.1.0
+# RAG & Vector Database (modern versions)
+chromadb>=0.5.5
+sentence-transformers>=2.6.0
 
 # Utility Libraries
-python-dotenv==1.0.0
-typing-extensions==4.14.1
-aiofiles==24.1.0
+python-dotenv>=1.0.0
+typing-extensions>=4.14.1
 
 # Development Tools
-pytest==8.4.1
-pytest-asyncio==1.1.0
-httpx==0.28.1
+pytest>=8.4.1
+pytest-asyncio>=1.1.0
+httpx>=0.28.1

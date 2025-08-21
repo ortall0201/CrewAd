@@ -3,9 +3,10 @@ import os
 import asyncio
 import logging
 from pathlib import Path
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks, Request
 from fastapi.responses import FileResponse, JSONResponse
-from typing import List, Optional
+from typing import List, Optional, Union
+from pydantic import BaseModel, Field
 from ..config import settings
 from ..crew.run_crew import run_pipeline, get_run_status, get_pipeline_stats
 
@@ -16,6 +17,26 @@ router = APIRouter()
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif", "image/bmp"}
 ALLOWED_AUDIO_TYPES = {"audio/wav", "audio/mpeg", "audio/mp4", "audio/aac", "audio/ogg"}
 ALLOWED_TEXT_TYPES = {"text/plain", "text/markdown", "application/json"}
+
+# Request models
+class RunRequest(BaseModel):
+    """Request model for pipeline execution"""
+    run_id: str = Field(..., description="Run ID from the upload endpoint")
+    target_length: int = Field(30, ge=5, le=120, description="Target video length in seconds")
+    tone: str = Field("confident", description="Tone of voice for the ad")
+    voice: str = Field("default", description="Voice model to use for TTS")
+    aspect: str = Field("16:9", description="Video aspect ratio")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "run_id": "12345678-1234-5678-9012-123456789012",
+                "target_length": 30,
+                "tone": "confident",
+                "voice": "default",
+                "aspect": "16:9"
+            }
+        }
 
 @router.post("/upload")
 async def upload_files(files: List[UploadFile] = File(...)):
@@ -97,17 +118,15 @@ async def upload_files(files: List[UploadFile] = File(...)):
         "upload_dir": run_dir
     }
 
-@router.post("/run")
-async def start_pipeline(
+async def _validate_and_start_pipeline(
     background_tasks: BackgroundTasks,
-    run_id: str = Form(...),
-    target_length: int = Form(30),
-    tone: str = Form("confident"),
-    voice: str = Form("default"),
-    aspect: str = Form("16:9"),
+    run_id: str,
+    target_length: int,
+    tone: str,
+    voice: str,
+    aspect: str
 ):
-    """Start the ad creation pipeline"""
-    
+    """Common validation and pipeline start logic"""
     # Validate run_id exists
     run_dir = os.path.join(settings.uploads_dir, run_id)
     if not os.path.exists(run_dir):
@@ -142,6 +161,40 @@ async def start_pipeline(
             "aspect": aspect
         }
     }
+
+@router.post("/run")
+async def start_pipeline_json(
+    request: RunRequest,
+    background_tasks: BackgroundTasks
+):
+    """Start the ad creation pipeline with JSON body"""
+    return await _validate_and_start_pipeline(
+        background_tasks,
+        request.run_id,
+        request.target_length, 
+        request.tone,
+        request.voice,
+        request.aspect
+    )
+
+@router.post("/run/form")
+async def start_pipeline_form(
+    background_tasks: BackgroundTasks,
+    run_id: str = Form(...),
+    target_length: int = Form(30),
+    tone: str = Form("confident"),
+    voice: str = Form("default"),
+    aspect: str = Form("16:9"),
+):
+    """Start the ad creation pipeline with form data (legacy support)"""
+    return await _validate_and_start_pipeline(
+        background_tasks,
+        run_id,
+        target_length,
+        tone,
+        voice,
+        aspect
+    )
 
 async def run_pipeline_task(run_id: str, target_length: int, tone: str, voice: str, aspect: str):
     """Background task to run the pipeline"""
