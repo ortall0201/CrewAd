@@ -1,46 +1,42 @@
-import os
+# src/config.py
 from pathlib import Path
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
 
 class Settings(BaseSettings):
-    # API settings
-    api_host: str = "0.0.0.0"
-    api_port: int = 8000
-    debug: bool = True
-    
-    # TTS settings
-    tts_provider: str = "kokoro"  # kokoro, espeak, openai
-    kokoro_model: str = "kokoro-v0_19"
-    kokoro_lang: str = "a"
-    kokoro_voice: str = "af_heart"
+    # Directories
+    uploads_dir: str = "./uploads"
+    outputs_dir: str = "./outputs"
+
+    # Vector store (optional override)
+    vector_store: Optional[str] = None
+
+    # API keys (optional)
     openai_api_key: Optional[str] = None
-    
-    # Video settings
-    video_fps: int = 30
-    video_codec: str = "libx264"
-    audio_codec: str = "aac"
-    
-    # RAG settings
-    rag_enabled: bool = True
-    rag_model: str = "all-MiniLM-L6-v2"
-    vector_store_path: str = "./backend/src/rag/index_db"
-    
-    # File paths
-    base_dir: Path = Path(__file__).parent.parent.parent
-    uploads_dir: Path = base_dir / "uploads"
-    outputs_dir: Path = base_dir / "outputs"
-    
-    model_config = {
-        "env_file": ".env",
-        "env_file_encoding": "utf-8"
-    }
+    anthropic_api_key: Optional[str] = None
+
+    # TTS (optional)
+    tts_engine: Optional[str] = None                # kokoro | openai | elevenlabs
+    kokoro_lang: Optional[str] = "a"
+    kokoro_voice: Optional[str] = "af_heart"
+    kokoro_provider: Optional[str] = "local"        # local | deepinfra | fal
+    kokoro_provider_url: Optional[str] = None
+    kokoro_api_key: Optional[str] = None
+    kokoro_fallback_provider: Optional[str] = "local"
+    espeak_fallback_enabled: bool = True
+
+    # Accept .env and IGNORE extras; map UPPERCASE env names automatically
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        extra="ignore",
+        case_sensitive=False,
+    )
 
 def get_settings() -> Settings:
-    return Settings()
+    s = Settings()
+    # Ensure folders exist
+    Path(s.uploads_dir).mkdir(parents=True, exist_ok=True)
+    Path(s.outputs_dir).mkdir(parents=True, exist_ok=True)
+    return s
 
 settings = get_settings()
-
-# Ensure directories exist
-settings.uploads_dir.mkdir(exist_ok=True)
-settings.outputs_dir.mkdir(exist_ok=True)

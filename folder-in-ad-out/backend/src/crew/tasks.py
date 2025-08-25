@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import Dict, List, Any
 from .agents import (
     AssetCuratorAgent, ScriptwrightAgent, DirectorAgent,
@@ -16,12 +17,26 @@ class PipelineTask:
     def execute(self, **kwargs) -> Any:
         """Execute task with error handling and logging"""
         logger.info(f"Starting task: {self.task_name}")
+        # Debug file for base execute method
+        if self.task_name == "Video Rendering":
+            debug_file = f"C:\\Users\\user\\Desktop\\CrewAd\\base-execute-debug.txt"
+            with open(debug_file, "w") as f:
+                f.write(f"BASE EXECUTE CALLED\n")
+                f.write(f"Task: {self.task_name}\n")
+                f.write(f"Kwargs: {kwargs}\n")
+                f.write(f"About to call _run...\n")
         try:
             result = self._run(**kwargs)
             logger.info(f"Completed task: {self.task_name}")
+            if self.task_name == "Video Rendering":
+                with open(debug_file, "a") as f:
+                    f.write(f"_run returned: {result}\n")
             return result
         except Exception as e:
             logger.error(f"Task {self.task_name} failed: {e}")
+            if self.task_name == "Video Rendering":
+                with open(debug_file, "a") as f:
+                    f.write(f"_run failed with exception: {e}\n")
             raise
             
     def _run(self, **kwargs) -> Any:
@@ -98,9 +113,56 @@ class EditTask(PipelineTask):
         
     def _run(self, run_id: str, shots: Dict, wavs: List[str], aspect: str, run_dir: str) -> str:
         """Render final video with effects and audio"""
-        editor = EditorAgent()
-        video_path = editor.render(run_id, shots, wavs, aspect, run_dir)
-        return video_path
+        # Write debug info to file for visibility
+        debug_file = f"C:\\Users\\user\\Desktop\\CrewAd\\debug-{run_id}.txt"
+        with open(debug_file, "w") as f:
+            f.write(f"EDIT TASK STARTING\n")
+            f.write(f"run_id: {run_id}\n")
+            f.write(f"shots: {shots}\n")
+            f.write(f"wavs: {wavs}\n")
+            f.write(f"aspect: {aspect}\n")
+            f.write(f"run_dir: {run_dir}\n")
+            f.write(f"run_dir exists: {os.path.exists(run_dir) if run_dir else False}\n")
+        
+        print(f"🔥 EDIT TASK STARTING - run_id: {run_id}")
+        print(f"🔥 Shots: {shots}")
+        print(f"🔥 Wavs: {wavs}")
+        print(f"🔥 Run dir: {run_dir}")
+        logger.info("=== EDIT TASK STARTING ===")
+        logger.info(f"EditTask inputs:")
+        logger.info(f"  run_id: {run_id}")
+        logger.info(f"  shots: {shots}")
+        logger.info(f"  wavs: {wavs}")
+        logger.info(f"  aspect: {aspect}")
+        logger.info(f"  run_dir: {run_dir}")
+        
+        try:
+            logger.info("Creating EditorAgent...")
+            editor = EditorAgent()
+            logger.info("Calling editor.render()...")
+            video_path = editor.render(run_id, shots, wavs, aspect, run_dir)
+            logger.info(f"EditorAgent returned: {video_path}")
+            return video_path
+        except Exception as e:
+            logger.error(f"EditTask failed with exception: {e}")
+            import traceback
+            logger.error(f"Full traceback: {traceback.format_exc()}")
+            
+            # CRITICAL: Write exception details to file for debugging
+            exception_file = f"C:\\Users\\user\\Desktop\\CrewAd\\edit-exception-{run_id}.txt"
+            with open(exception_file, "w") as f:
+                f.write(f"EDIT TASK EXCEPTION DETAILS\n")
+                f.write(f"Exception: {e}\n")
+                f.write(f"Exception type: {type(e).__name__}\n")
+                f.write(f"Full traceback:\n{traceback.format_exc()}\n")
+                f.write(f"Parameters:\n")
+                f.write(f"  run_id: {run_id}\n")
+                f.write(f"  shots: {shots}\n")
+                f.write(f"  wavs: {wavs}\n")
+                f.write(f"  aspect: {aspect}\n")
+                f.write(f"  run_dir: {run_dir}\n")
+            
+            return ""
 
 class QATask(PipelineTask):
     """Quality assurance task"""

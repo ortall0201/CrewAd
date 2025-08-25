@@ -1,0 +1,6 @@
+MOCK _RUN CALLED
+run_id: c0e2fe07-5f60-4eda-91de-411f7be4b674
+shots: <class 'dict'>
+wavs: <class 'list'>
+aspect: 16:9
+run_dir: C:\Users\user\Desktop\CrewAd\folder-in-ad-out\uploads\c0e2fe07-5f60-4eda-91de-411f7be4b674
